@@ -1,0 +1,63 @@
+# Stage 0 gate harness -- ESP32-P4, Waveshare 10.1" board
+CONFIG_IDF_TARGET="esp32p4"
+
+# --- PSRAM -----------------------------------------------------------------
+# 32 MB in-package PSRAM. Everything the photo frame does lives here:
+# framebuffers, decoded photos, the LVGL layer. Gate 0.4 measures whether its
+# bandwidth can actually sustain a full-screen crossfade.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_HEX=y
+CONFIG_SPIRAM_SPEED_200M=y
+CONFIG_SPIRAM_XIP_FROM_PSRAM=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
+# --- CPU -------------------------------------------------------------------
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_360=y
+
+# --- Flash: 16 MB NOR -----------------------------------------------------
+# MEASURED, and it contradicts the vendor page, which advertises 32 MB. The
+# chip reports 16384k; booting a 32 MB image header aborts in spi_flash before
+# app_main is ever reached. Stage 0 earning its keep on the first run.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# --- Cache: bigger lines help the big linear PSRAM copies the compositor does
+CONFIG_CACHE_L2_CACHE_512KB=y
+CONFIG_CACHE_L2_CACHE_LINE_128B=y
+
+# --- Stage 0 wants to see faults, not reboots ------------------------------
+CONFIG_ESP_SYSTEM_PANIC_PRINT_HALT=y
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+
+# --- FATFS: long filenames, since photos come off a camera/phone -----------
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# --- Partition table offset ------------------------------------------------
+# The P4 bootloader with PSRAM + 32 MB flash support comes out at ~0x60C0,
+# which overruns the default 0x8000 table offset. Espressif's documented fix is
+# to move the table rather than to strip the bootloader.
+CONFIG_PARTITION_TABLE_OFFSET=0xA000
+
+# Single 4 MB app, no OTA: this device is flashed over USB, and OTA is a
+# non-goal (the CYD project made the same call for the same reason).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- Silicon revision ------------------------------------------------------
+# This board carries ESP32-P4 rev v1.3. ESP-IDF defaults to v3.1+, and the two
+# families are MUTUALLY EXCLUSIVE -- Espressif's own Kconfig says rev >=3.0 and
+# rev <3.0 "have huge hardware difference" and are not compatible. A binary
+# built with the default settings is rejected by the bootloader on this chip,
+# which is exactly what happened on the first flash attempt.
+#
+# Selecting this caps the build at rev v1.99: it will NOT run on a v3.x P4.
+# If this project is ever moved to a newer board, this is the line to revisit.
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_100=y
+
+# Flash is a Boya part; without this the generic driver is used and the log
+# says so on every boot.
+CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y

@@ -1,0 +1,217 @@
+# ESP32-P4 photo frame -- Waveshare 10.1" board
+CONFIG_IDF_TARGET="esp32p4"
+
+# --- PSRAM -----------------------------------------------------------------
+# 32 MB in-package PSRAM. Everything the photo frame does lives here:
+# framebuffers, decoded photos, the LVGL layer. Gate 0.4 measures whether its
+# bandwidth can actually sustain a full-screen crossfade.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_HEX=y
+CONFIG_SPIRAM_SPEED_200M=y
+CONFIG_SPIRAM_XIP_FROM_PSRAM=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
+# --- CPU -------------------------------------------------------------------
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_360=y
+
+# --- Flash: 16 MB NOR -----------------------------------------------------
+# MEASURED, and it contradicts the vendor page, which advertises 32 MB. The
+# chip reports 16384k; booting a 32 MB image header aborts in spi_flash before
+# app_main is ever reached. Stage 0 earning its keep on the first run.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# --- Cache: bigger lines help the big linear PSRAM copies the compositor does
+CONFIG_CACHE_L2_CACHE_512KB=y
+CONFIG_CACHE_L2_CACHE_LINE_128B=y
+
+# --- Stage 0 wants to see faults, not reboots ------------------------------
+CONFIG_ESP_SYSTEM_PANIC_PRINT_HALT=y
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+
+# --- FATFS: long filenames, since photos come off a camera/phone -----------
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# --- Partition table offset ------------------------------------------------
+# The P4 bootloader with PSRAM + 32 MB flash support comes out at ~0x60C0,
+# which overruns the default 0x8000 table offset. Espressif's documented fix is
+# to move the table rather than to strip the bootloader.
+CONFIG_PARTITION_TABLE_OFFSET=0xA000
+
+# Single 4 MB app, no OTA: this device is flashed over USB, and OTA is a
+# non-goal (the CYD project made the same call for the same reason).
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- Silicon revision ------------------------------------------------------
+# This board carries ESP32-P4 rev v1.3. ESP-IDF defaults to v3.1+, and the two
+# families are MUTUALLY EXCLUSIVE -- Espressif's own Kconfig says rev >=3.0 and
+# rev <3.0 "have huge hardware difference" and are not compatible. A binary
+# built with the default settings is rejected by the bootloader on this chip,
+# which is exactly what happened on the first flash attempt.
+#
+# Selecting this caps the build at rev v1.99: it will NOT run on a v3.x P4.
+# If this project is ever moved to a newer board, this is the line to revisit.
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_100=y
+
+# Flash is a Boya part; without this the generic driver is used and the log
+# says so on every boot.
+CONFIG_SPI_FLASH_SUPPORT_BOYA_CHIP=y
+
+# --- LVGL: overlay rendering only ------------------------------------------
+# LVGL never touches the panel here. It renders the bottom-strip overlay into
+# a standalone ARGB8888 layer, and the compositor PPA-blends that over the
+# photo. ARGB is what carries the frosted bar's translucency.
+CONFIG_LV_COLOR_DEPTH_32=y
+CONFIG_LV_DRAW_BUF_ALIGN=64
+# NOT enabling LV_ATTRIBUTE_FAST_MEM_USE_IRAM: it moves LVGL's hot paths into
+# IRAM, and on this build that exhausts internal RAM at link time -- the
+# linker starts discarding .sbss sections out of esp_system itself. The
+# overlay is a few labels redrawn twice a second; it does not need IRAM.
+
+# The sizes the design doc calls for: 68, 56, 28, 22, 20, 17, 12.
+# Montserrat's built-ins stop at 48, so 68 and 56 are the 48 px face scaled
+# by 1.42 and 1.17. See the summary for what that costs.
+CONFIG_LV_FONT_MONTSERRAT_12=y
+CONFIG_LV_FONT_MONTSERRAT_18=y
+CONFIG_LV_FONT_MONTSERRAT_20=y
+CONFIG_LV_FONT_MONTSERRAT_22=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
+CONFIG_LV_FONT_MONTSERRAT_48=y
+CONFIG_LV_FONT_DEFAULT_MONTSERRAT_20=y
+
+# Use the C library's malloc rather than LVGL's built-in pool. The built-in
+# one is a STATIC ARRAY of LV_MEM_SIZE_KILOBYTES, which lands in internal RAM
+# and, at 256 KB, exhausted it so badly the linker began discarding .sbss
+# sections out of esp_system itself. LVGL's own allocations here are small --
+# a few labels and styles -- because the one large buffer, the ARGB overlay
+# layer, is allocated by us in PSRAM and handed to it.
+# LVGL uses a custom allocator (main/ui/lv_mem_psram.c) that draws from PSRAM
+# only. See the header there: clib malloc put LVGL's widgets and glyph caches
+# into DMA-capable internal RAM and starved the SD card and TLS.
+CONFIG_LV_USE_CUSTOM_MALLOC=y
+CONFIG_LV_USE_CLIB_STRING=y
+CONFIG_LV_USE_CLIB_SPRINTF=y
+
+# LVGL's render pass runs on whichever task calls lv_timer_handler(), and it
+# needs far more than app_main's 3.5 KB default -- the first run faulted the
+# stack guard the moment the overlay drew.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# --- ESP32-C6 WiFi co-processor over SDIO ----------------------------------
+# The P4 has no radio of its own. Wi-Fi is an ESP32-C6-MINI reached through
+# esp_hosted on SDMMC slot 1; the microSD is on slot 0, so they never contend.
+# Pin values come from the board vendor's own working example.
+#
+# NOTE the symbol names: esp_hosted 3.0.6 renamed all of these with a HOST_
+# infix (see host/sdkconfig.rename in the component). The vendor example was
+# written against an older release, so copying its keys verbatim silently
+# assigns nothing -- the build warns about unknown symbols and then uses
+# defaults that do not match this board.
+CONFIG_ESP_HOSTED=y
+CONFIG_ESP_HOSTED_HOST=y
+CONFIG_ESP_HOSTED_CP_TARGET_ESP32C6=y
+CONFIG_ESP_HOSTED_HOST_TRANSPORT_BUS_SDIO=y
+CONFIG_ESP_HOSTED_HOST_SDIO_SLOT=1
+CONFIG_ESP_HOSTED_HOST_SDIO_BUS_WIDTH=4
+CONFIG_ESP_HOSTED_HOST_SDIO_CLK_KHZ=40000
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_CLK=18
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_CMD=19
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_D0=14
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_D1=15
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_D2=16
+CONFIG_ESP_HOSTED_HOST_SDIO_PIN_D3=17
+CONFIG_ESP_HOSTED_HOST_RESET_GPIO=54
+
+# The P4 has only ~183 KB of DIRAM, and IDF internals take 130 KB of it before
+# any of our code runs. The default 32 KB internal DMA reserve does not fit
+# alongside esp_hosted's SDIO buffers -- startup aborts with
+# "Could not reserve internal/DMA pool (error 0x101)".
+#
+# 16 KB is enough here because the Wi-Fi stack itself lives on the C6: the host
+# side is RPC over SDIO, not a radio driver, so it needs far less DMA-capable
+# internal memory than a native ESP32 Wi-Fi build would.
+# 24 KB: 16 KB left the SD card unable to get DMA buffers once the network was
+# also up, and 32 KB does not fit -- startup aborts before app_main. The
+# headroom for this came from shrinking the SDIO and lwip buffers below.
+# 16 KB. This was raised to 24 KB back when LVGL was allocating its widgets
+# out of DMA-capable internal RAM and starving the SD card. That is no longer
+# true -- LVGL has its own PSRAM allocator now, and runtime DMA-free measured
+# 42-45 KB afterwards -- so the larger static reserve is no longer earning its
+# keep, and the GSL3680 driver's ~9 KB of statics pushed the total past what
+# the pool could reserve at startup.
+# Back to 24 KB. At 16 KB the ESP32-C6 link ran out of DMA buffers for
+# RECEIVED packets -- "mempool OOM (RX)", "dma_alloc(1536) failed" -- which
+# took DNS, ping and the web server down together and looked like a network
+# fault rather than a memory one. The headroom to afford this came from moving
+# the touch algorithm's arrays into PSRAM, not from squeezing the radio.
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=24576
+
+# --- TLS memory ------------------------------------------------------------
+# The first HTTPS fetch failed with "allocate_dma_buf: not enough mem" and took
+# the SD card's DMA allocations down with it. The P4 leaves only ~52 KB of
+# internal heap after IDF's static usage, and a TLS session wants a large
+# slice of it -- an in/out record pair alone is 20 KB.
+#
+# Moving mbedTLS's allocations to PSRAM keeps the internal pool for the things
+# that genuinely need DMA-capable memory: the SD card and the SDIO link to the
+# C6. The P4's PSRAM is DMA capable, so hardware AES still works from there.
+CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC=y
+
+# Outgoing records are small -- our requests are a few hundred bytes of URL.
+# Incoming stays at the default 16 KB because a server may legitimately send a
+# full-size record during the handshake, and shrinking it breaks the connection
+# rather than saving memory usefully.
+CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096
+
+# --- Freeing internal RAM for DMA ------------------------------------------
+# The P4 has ~183 KB of DIRAM and IDF's own statics take ~130 KB. Everything
+# below competes for the remainder, and the SD card, the SDIO link to the C6
+# and TLS all need DMA-capable memory from it.
+#
+# The SDIO queues are the biggest lever we control: 20 deep each is sized for
+# sustained throughput this frame never asks for. It fetches a few kilobytes
+# of JSON every 15 minutes and serves an occasional web page.
+CONFIG_ESP_HOSTED_HOST_SDIO_TX_Q_SIZE=8
+CONFIG_ESP_HOSTED_HOST_SDIO_RX_Q_SIZE=8
+
+# lwip buffers land in internal memory. Halving the TCP window costs nothing
+# at our transfer sizes.
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_MAX_SOCKETS=8
+
+# Send small heap allocations to PSRAM as well as large ones.
+#
+# The default threshold is 16 KB: anything smaller than that comes from
+# internal RAM. LVGL's objects are all far below it, so the two-tier layout --
+# three cells per page, dividers, a status row, ~25 widgets in all -- pushed
+# enough small allocations into internal RAM to starve the TLS handshake, and
+# weather fetches began failing with getaddrinfo errors that look like DNS.
+#
+# 512 bytes keeps genuinely tiny allocations internal while everything else
+# goes to PSRAM. DMA buffers are unaffected: they ask for MALLOC_CAP_DMA
+# explicitly and still get internal memory.
+# Back to the IDF default. Tuning this globally was the wrong lever: at 128 it
+# broke lwip's DNS resolver, and at 512 it still left LVGL in internal RAM.
+# LVGL now has its own PSRAM allocator instead, which targets exactly the
+# allocations that were the problem.
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+
+# --- IBM Plex Sans Condensed via TinyTTF ------------------------------------
+# The design is set in IBM Plex Sans Condensed at 68/56/28/22/20/17/12 px.
+# Montserrat's built-in faces stop at 48 and are much wider, which forced both
+# a blurry 1.42x scale on the clock and a clipped right-hand cell.
+#
+# TinyTTF rasterises glyphs from an embedded TTF at any size, so the design's
+# sizes are used exactly. It costs CPU per newly-seen glyph, which is nothing
+# here: the strip's text changes twice a second at most and the cache holds
+# what it has already drawn.
+CONFIG_LV_USE_TINY_TTF=y
+
+# Required for EXT_RAM_BSS_ATTR (see main/board/gsl3680/gsl_point_id.c).
+CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y

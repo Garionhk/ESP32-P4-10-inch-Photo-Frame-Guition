@@ -1,0 +1,7 @@
+# Table lives at 0xA000 (the P4 bootloader with PSRAM + 32 MB flash overruns
+# the default 0x8000). No OTA: this device is flashed over USB, and the app
+# needs the room more than it needs a second slot.
+# Name,   Type, SubType, Offset,   Size,  Flags
+nvs,      data, nvs,     0xB000,   0x6000,
+phy_init, data, phy,     0x11000,  0x1000,
+factory,  app,  factory, 0x20000,  6M,
