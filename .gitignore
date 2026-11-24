@@ -1,8 +1,57 @@
+# ---- ESP-IDF build output -------------------------------------------------
+# No leading slash, so these also cover stage0/ -- there are two independent
+# IDF projects in this tree and each grows its own build/ and
+# managed_components/.
 build/
 managed_components/
+
+# Generated from sdkconfig.defaults on every configure. sdkconfig.defaults is
+# the file that is tracked, and it carries the reasoning for each value.
 sdkconfig
 sdkconfig.old
+sdkconfig.ci
+
+# Resolved by the component manager from the version ranges in
+# idf_component.yml. See docs/decisions.md on why esp_hosted is pinned.
 dependencies.lock
-.DS_Store
-__pycache__/
+
+# ---- Generated release artifacts ------------------------------------------
+# tools/make_release.sh rebuilds this from any build/ -- the binaries are
+# attached to GitHub Releases instead of being committed.
 release/
+merged-firmware.bin
+
+# ---- Toolchain / debug leftovers ------------------------------------------
+*.elf
+*.map
+*.su
+core
+core.*
+
+# ---- Python (tools/, gui-flasher/) ----------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ---- Editors / IDEs -------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- Claude Code ----------------------------------------------------------
+# Machine-local permissions and settings; may contain paths specific to one
+# checkout.
+.claude/settings.local.json
+
+# ---- OS cruft -------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
