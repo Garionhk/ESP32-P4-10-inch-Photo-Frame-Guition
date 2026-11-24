@@ -220,5 +220,25 @@ semantics) comes from
 along with the engineering rules this project runs on. Weather, air quality and
 UV data are from [Open-Meteo](https://open-meteo.com/).
 
-Bundled fonts are **IBM Plex Sans Condensed**, © IBM Corp., licensed under the
-[SIL Open Font License 1.1](main/ui/fonts/OFL.txt).
+## License
+
+**GPL-3.0-or-later** — see [LICENSE](LICENSE).
+
+That is not an arbitrary pick. `main/board/gsl3680/gsl_point_id.c` is Silead's
+finger-tracking algorithm, taken from the Linux kernel's
+`drivers/input/touchscreen/mediatek/gslX680/` and licensed
+**GPL-2.0-or-later**. It is compiled into the firmware and the touch driver
+calls it directly, so a built binary is a derivative work and has to be offered
+under the GPL. That file's "or any later version" clause is what makes v3
+available.
+
+Third-party components keep their own terms:
+
+| | |
+|---|---|
+| `main/board/gsl3680/gsl_point_id.c` | © 2010–2016 Silead Inc. — **GPL-2.0-or-later** |
+| `main/ui/fonts/*.ttf` | **IBM Plex Sans Condensed**, © IBM Corp. — [SIL OFL 1.1](main/ui/fonts/OFL.txt) |
+| ESP-IDF and its components | Apache-2.0 — resolved at build time, not vendored here |
+
+If you hand someone a built binary, the GPL requires the corresponding source
+to be available to them. Pointing at this repository covers that.
