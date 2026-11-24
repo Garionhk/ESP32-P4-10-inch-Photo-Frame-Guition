@@ -1,4 +1,4 @@
-# ESP32-P4 photo frame -- Waveshare 10.1" board
+# ESP32-P4 photo frame -- Guition JC8012P4A1 10.1" board
 CONFIG_IDF_TARGET="esp32p4"
 
 # --- PSRAM -----------------------------------------------------------------

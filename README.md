@@ -1,9 +1,13 @@
 # ESP32-P4 10.1" Digital Photo Frame
 
-Firmware for a **Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1**: a photo frame that
-plays from a microSD card and from Immich, accepts uploads over the network, and
-carries a clock / weather / sun / air-quality overlay along the bottom fifth of
-the screen.
+Firmware for a **Guition JC8012P4A1** — a 10.1" 800×1280 ESP32-P4 board: a photo
+frame that plays from a microSD card and from Immich, accepts uploads over the
+network, and carries a clock / weather / sun / air-quality overlay along the
+bottom fifth of the screen.
+
+It was first written for a Waveshare ESP32-P4-WIFI6-Touch-LCD-10.1, which is a
+different board, and every backlight and touch value was wrong as a result.
+Stage 0 is what caught that.
 
 Sibling project: `../CYD 2.8 Weather Clock`, which supplies the overlay's data
 layer (`sun_moon`, `units`, and the Open-Meteo fetch semantics) and the
@@ -132,10 +136,10 @@ renditions (~1440 px) skip ingest entirely.
 
 | | |
 |---|---|
-| SoC | ESP32-P4, dual RISC-V, 32 MB flash, **32 MB PSRAM** |
+| SoC | ESP32-P4, dual RISC-V, **16 MB flash** (measured; the spec sheet says 32), **32 MB PSRAM** |
 | WiFi | ESP32-C6-MINI over SDIO **slot 1** (`esp_hosted`), WiFi 6 / BLE 5 |
 | Panel | JD9365 10.1", **800×1280 native portrait**, 2-lane MIPI-DSI @ 1500 Mbps |
-| Touch | GT911, 10-point |
+| Touch | **GSL3680** @ 0x40, reset GPIO 22, INT GPIO 21 |
 | Storage | microSD on SDMMC **slot 0** (pins fixed in silicon) |
 | Audio | ES8311 + ES7210 — present, unused |
 

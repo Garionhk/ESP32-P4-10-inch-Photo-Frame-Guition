@@ -1,4 +1,4 @@
-# Stage 0 gate harness -- ESP32-P4, Waveshare 10.1" board
+# Stage 0 gate harness -- ESP32-P4, Guition JC8012P4A1 10.1" board
 CONFIG_IDF_TARGET="esp32p4"
 
 # --- PSRAM -----------------------------------------------------------------
