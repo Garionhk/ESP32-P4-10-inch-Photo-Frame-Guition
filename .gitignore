@@ -5,3 +5,4 @@ sdkconfig.old
 dependencies.lock
 .DS_Store
 __pycache__/
+release/

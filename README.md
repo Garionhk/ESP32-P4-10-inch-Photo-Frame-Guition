@@ -46,6 +46,38 @@ The application itself builds from the repo root:
 idf.py build
 ```
 
+### Flashing from a browser
+
+`tools/make_release.sh` turns a finished build into `release/`, which is what
+gets handed to anyone who is not set up to build:
+
+```bash
+./tools/make_release.sh
+```
+
+It needs no sourced environment — it shells out to the `esptool` CLI and reads
+the build's own `flash_args` for the offsets, the same way
+`gui-flasher/flasher.py` does.
+
+The output is one merged image to write at `0x0` with
+[ESPWebTool](https://esptool.spacehuhn.com/) (desktop Chrome, Edge or Opera —
+it needs Web Serial), the three separate bins for anyone who would rather use
+their own offsets, flashing instructions, and a manifest with SHA-256 sums.
+
+Merging at `0x0` rather than at the bootloader's `0x2000` is deliberate: one
+file at one well-known address is the route the website documents, and its
+address field is typed by hand, so there is no offset left to get wrong.
+
+The flash settings survive the trip. ESPWebTool (v0.2.1, driving
+`esptool-js@0.7.1` from unpkg) calls `writeFlash` with
+`flashMode/flashFreq/flashSize: "keep"`, and a tool only rewrites those bytes
+in an image header found at address `0x0` — which here is `0xFF` padding. The
+16 MB / 80 MHz / DIO values this board needs are the ones it boots with.
+
+The trade-off is that a merged image spans the `nvs` partition between the
+partition table and the app, so flashing it clears saved WiFi credentials.
+`release/separate-bins/` is the route that keeps them.
+
 ---
 
 ## Why there is a Stage 0 at all
@@ -129,7 +161,12 @@ stage0/                the gate harness (builds and runs standalone)
 docs/
   stage0_results.md    the live gate table — fill it in
   decisions.md         why things are the way they are, newest first
-tools/env.sh           sources ESP-IDF and fixes the macOS cert issue
+tools/
+  env.sh               sources ESP-IDF and fixes the macOS cert issue
+  make_release.sh      build/ -> release/, web-flashable
+  release_README.md    the flashing instructions shipped in release/
+gui-flasher/           point-and-click erase/merge/flash over USB
+release/               generated; ignored by git
 ```
 
 ## Toolchain
